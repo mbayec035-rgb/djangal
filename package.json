@@ -1,0 +1,23 @@
+{
+  "name": "djangue",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n API,WEB -c green,cyan \"npm run dev -w @djangue/api\" \"npm run dev -w @djangue/web\"",
+    "dev:web": "npm run dev -w @djangue/web",
+    "dev:api": "npm run dev -w @djangue/api",
+    "build": "npm run build -w @djangue/web",
+    "start": "npm run start -w @djangue/api",
+    "db:reset": "npm run db:reset -w @djangue/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}
