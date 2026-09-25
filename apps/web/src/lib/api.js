@@ -9,11 +9,16 @@ export class ApiError extends Error {
   }
 }
 
-const STORAGE = {
+const STATE_KEY = 'djangue.state.v1';
+// Keys used by the previous account-based version, read once to migrate data.
+const LEGACY_KEYS = {
   session: 'djangue.session.v1',
   progress: 'djangue.progress.v1',
   attempts: 'djangue.attempts.v1',
 };
+
+const LOCAL_PROFILE_ID = 'local-profile';
+const LEGACY_GUEST_ID = 'guest-local';
 
 const memory = new Map();
 let initialization;
@@ -38,7 +43,7 @@ function write(key, value) {
   try {
     window.localStorage.setItem(key, serialized);
   } catch {
-    // The memory fallback keeps the demo usable when storage is disabled.
+    // The memory fallback keeps the app usable when storage is disabled.
   }
 }
 
@@ -59,21 +64,6 @@ function slugify(value) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 80);
-}
-
-async function hashPassword(value) {
-  const source = new TextEncoder().encode(String(value));
-  if (globalThis.crypto?.subtle) {
-    const digest = await globalThis.crypto.subtle.digest('SHA-256', source);
-    return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
-  }
-
-  let hash = 2166136261;
-  for (const byte of source) {
-    hash ^= byte;
-    hash = Math.imul(hash, 16777619);
-  }
-  return `local-${(hash >>> 0).toString(16)}`;
 }
 
 function now() {
@@ -104,109 +94,124 @@ function normalizeModule(course, courseIndex = 0) {
   };
 }
 
-function seedState() {
-  const users = [
-    { id: 'user-admin', name: 'Administrateur Djangue', email: 'admin@djangue.dev', role: 'admin', bio: 'Compte administrateur de la plateforme.', avatar: null, createdAt: now() },
-    { id: 'user-student', name: 'Camille Diallo', email: 'student@djangue.dev', role: 'student', bio: 'Apprenante en développement web et outils de modélisation.', avatar: null, createdAt: now() },
-  ];
+function defaultProfile() {
   return {
-    users: users.map((user) => ({ ...user })),
+    id: LOCAL_PROFILE_ID,
+    name: 'Apprenant Djangue',
+    bio: 'Je découvre les fondamentaux du développement web et des outils de modélisation.',
+    avatar: null,
+    createdAt: now(),
+  };
+}
+
+function defaultProgress() {
+  return { [LOCAL_PROFILE_ID]: {} };
+}
+
+function seedState() {
+  return {
+    profile: defaultProfile(),
     courses: defaultModules.map((course, index) => normalizeModule(course, index)),
-    progress: {},
+    progress: defaultProgress(),
     attempts: [],
+  };
+}
+
+// Rebuilds the state from a previous account-based version so no progress is lost.
+function migrateState(previous) {
+  const legacySessionId = read(LEGACY_KEYS.session, null);
+  const legacyUser = (previous.users || []).find((user) => user.id === legacySessionId)
+    || (previous.users || []).find((user) => user.role !== 'admin')
+    || (previous.users || [])[0]
+    || null;
+
+  const profile = legacyUser
+    ? {
+      id: LOCAL_PROFILE_ID,
+      name: legacyUser.name || defaultProfile().name,
+      bio: legacyUser.bio ?? defaultProfile().bio,
+      avatar: legacyUser.avatar ?? null,
+      createdAt: legacyUser.createdAt || now(),
+    }
+    : defaultProfile();
+
+  const rawProgress = { ...(previous.progress || {}), ...(read(LEGACY_KEYS.progress, {}) || {}) };
+  const owned = { ...(rawProgress[LEGACY_GUEST_ID] || {}), ...(rawProgress[legacyUser?.id] || {}), ...(rawProgress[LOCAL_PROFILE_ID] || {}) };
+
+  const rawAttempts = [...(previous.attempts || []), ...(read(LEGACY_KEYS.attempts, []) || [])];
+  const seen = new Set();
+  const attempts = rawAttempts
+    .filter((attempt) => attempt && (attempt.userId === LEGACY_GUEST_ID || !attempt.userId || attempt.userId === legacyUser?.id || attempt.userId === LOCAL_PROFILE_ID))
+    .filter((attempt) => {
+      const key = attempt.id || `${attempt.quizId}-${attempt.createdAt}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((attempt) => ({ ...attempt, userId: LOCAL_PROFILE_ID }));
+
+  return {
+    profile,
+    courses: Array.isArray(previous.courses) && previous.courses.length
+      ? previous.courses.map((course, index) => normalizeModule(course, index))
+      : seedState().courses,
+    progress: { [LOCAL_PROFILE_ID]: owned },
+    attempts,
   };
 }
 
 async function ensureState() {
   if (!initialization) {
     initialization = (async () => {
-      const state = read('djangue.state.v1', null);
-      if (state?.users && state?.courses) {
-        const migrated = { progress: {}, attempts: [], ...state };
-        write('djangue.state.v1', migrated);
+      const previous = read(STATE_KEY, null);
+      if (previous && Array.isArray(previous.courses)) {
+        const migrated = previous.profile
+          ? { progress: defaultProgress(), attempts: [], ...previous }
+          : migrateState(previous);
+        write(STATE_KEY, migrated);
         return migrated;
       }
-
-      const users = seedState().users;
-      const initial = {
-        users: await Promise.all(users.map(async (user) => ({
-          ...user,
-          passwordHash: user.role === 'admin' ? await hashPassword('DjangueAdmin2026!') : await hashPassword('DjangueStudent2026!'),
-        }))),
-        courses: seedState().courses,
-        progress: read(STORAGE.progress, {}),
-        attempts: read(STORAGE.attempts, []),
-      };
-      write('djangue.state.v1', initial);
+      const initial = seedState();
+      write(STATE_KEY, initial);
       return initial;
-    })();
+    })().catch((error) => {
+      // A rejected promise must not poison every later request.
+      initialization = undefined;
+      throw error;
+    });
   }
   return initialization;
 }
 
 function state() {
-  return read('djangue.state.v1', null) || { users: [], courses: [], progress: {}, attempts: [] };
+  return read(STATE_KEY, null) || { profile: defaultProfile(), courses: [], progress: defaultProgress(), attempts: [] };
 }
 
 function saveState(next) {
-  write('djangue.state.v1', next);
+  write(STATE_KEY, next);
 }
 
-const GUEST_ID = 'guest-local';
-
-function currentUser() {
-  const sessionId = read(STORAGE.session, null);
-  if (!sessionId) return null;
-  return state().users.find((user) => user.id === sessionId) || null;
-}
-
-function courseUser() {
-  return currentUser() || { id: GUEST_ID, name: 'Visiteur', email: null, role: 'guest', bio: '', avatar: null, createdAt: now() };
-}
-
-function mergeGuestData(userId) {
+// The single local profile. There is no account, so this never fails.
+function localProfile() {
   const current = state();
-  const guestProgress = current.progress?.[GUEST_ID];
-  const guestAttempts = (current.attempts || []).filter((attempt) => attempt.userId === GUEST_ID);
-  if ((!guestProgress || Object.keys(guestProgress).length === 0) && guestAttempts.length === 0) return;
-
-  const progress = { ...(current.progress || {}) };
-  progress[userId] = { ...(guestProgress || {}), ...(progress[userId] || {}) };
-  const attempts = [
-    ...(current.attempts || []).filter((attempt) => attempt.userId !== GUEST_ID),
-    ...guestAttempts.map((attempt) => ({ ...attempt, userId })),
-  ];
-  saveState({ ...current, progress, attempts });
+  if (!current.profile) {
+    const next = { ...current, profile: defaultProfile() };
+    saveState(next);
+    return next.profile;
+  }
+  return current.profile;
 }
 
-function requireCourseUser() {
-  return courseUser();
+function userProgress() {
+  return state().progress?.[LOCAL_PROFILE_ID] || {};
 }
 
-function requireUser() {
-  const user = currentUser();
-  if (!user) fail(401, 'Authentification requise.');
-  return user;
+function getAttempts() {
+  return (state().attempts || []).slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
 }
 
-function requireAdmin() {
-  const user = requireUser();
-  if (user.role !== 'admin') fail(403, 'Accès réservé aux administrateurs.');
-  return user;
-}
-
-function publicUser(user) {
-  if (!user) return null;
-  const { passwordHash, ...safeUser } = user;
-  return safeUser;
-}
-
-function userProgress(userId) {
-  return state().progress?.[userId] || {};
-}
-
-function courseSummary(course, userId = null) {
-  const progress = userId ? userProgress(userId) : {};
+function courseSummary(course) {
+  const progress = userProgress();
   const completedChapters = course.chapters.filter((chapter) => progress[chapter.id]).length;
   return {
     id: course.id,
@@ -265,6 +270,41 @@ function findQuiz(quizId) {
   return null;
 }
 
+function bestAttemptFor(quizId) {
+  return getAttempts()
+    .filter((attempt) => attempt.quizId === quizId)
+    .sort((a, b) => b.score - a.score)[0] || null;
+}
+
+function bestAttemptView(attempt) {
+  if (!attempt) return null;
+  const { id, score, total, passed, createdAt } = attempt;
+  return { id, score, total, passed, createdAt };
+}
+
+function chapterViews(course) {
+  const progress = userProgress();
+  return course.chapters.map((chapter) => {
+    const quiz = chapterQuiz(course, chapter);
+    return {
+      ...chapter,
+      durationMinutes: chapter.duration,
+      completed: Boolean(progress[chapter.id]),
+      quiz: quiz ? { ...quiz, bestAttempt: bestAttemptView(bestAttemptFor(quiz.id)) } : null,
+    };
+  });
+}
+
+function courseDetail(course, chapters) {
+  const final = finalQuiz(course);
+  return {
+    ...courseSummary(course),
+    totalChapters: chapters.length,
+    completedChapters: chapters.filter((chapter) => chapter.completed).length,
+    finalQuiz: final ? { ...final, bestAttempt: bestAttemptView(bestAttemptFor(final.id)) } : null,
+  };
+}
+
 function attemptView(attempt) {
   const context = findQuiz(attempt.quizId);
   if (!context) return null;
@@ -284,34 +324,56 @@ function attemptView(attempt) {
   };
 }
 
-function getAttempts(userId) {
-  return state().attempts.filter((attempt) => attempt.userId === userId).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+// The identifier is derived from the attempt so the dashboard list and the quiz
+// result screen always show the same certificate id.
+function certificateView(course, attempt) {
+  const suffix = String(attempt.id).replace('attempt-', '').toUpperCase().slice(-6);
+  return {
+    id: `DJG-${String(course.id).replace('course-', '').toUpperCase()}-${suffix}`,
+    courseTitle: course.title,
+    courseSlug: course.slug,
+    accent: course.accent,
+    issuedAt: attempt.createdAt,
+  };
 }
 
-function validatePassword(password) {
-  if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
-    fail(400, 'Le mot de passe doit contenir au moins 8 caractères, une lettre et un chiffre.', 'password');
-  }
+// Whitelists the writable course fields so summary-only keys never leak into storage.
+function readCourseInput(body = {}, fallback = {}) {
+  const text = (field) => (body[field] === undefined ? fallback[field] : String(body[field]).trim());
+  const duration = body.durationMinutes ?? body.duration;
+  return {
+    title: text('title'),
+    technology: text('technology'),
+    shortDescription: text('shortDescription'),
+    description: text('description'),
+    level: text('level'),
+    icon: text('icon'),
+    accent: text('accent'),
+    published: body.published === undefined ? fallback.published : body.published !== false,
+    duration: duration === undefined ? fallback.duration : Number(duration),
+  };
 }
 
 async function routeGet(path) {
   await ensureState();
-  if (path === '/auth/me') return { user: publicUser(currentUser()) };
+  localProfile();
+
+  if (path === '/profile' || path === '/users/profile') return { user: state().profile };
+
   if (path === '/courses') {
-    const user = courseUser();
-    return { courses: state().courses.filter((course) => course.published !== false).map((course) => courseSummary(course, user.id)) };
+    return { courses: state().courses.filter((course) => course.published !== false).map(courseSummary) };
   }
+
   if (path === '/dashboard') {
-    const user = requireUser();
-    const courses = state().courses.filter((course) => course.published !== false).map((course) => courseSummary(course, user.id));
+    const courses = state().courses.filter((course) => course.published !== false).map(courseSummary);
     const allChapters = courses.reduce((sum, course) => sum + course.totalChapters, 0);
     const completedChapters = courses.reduce((sum, course) => sum + course.completedChapters, 0);
-    const attempts = getAttempts(user.id);
+    const attempts = getAttempts();
     const recentAttempts = attempts.slice(0, 6).map(attemptView).filter(Boolean);
-    const certificates = attempts.filter((attempt) => attempt.passed && findQuiz(attempt.quizId)?.quiz.kind === 'module').map((attempt, index) => {
-      const context = findQuiz(attempt.quizId);
-      return { id: `DJG-${context.course.id.replace('course-', '').toUpperCase()}-${index + 1}`, courseTitle: context.course.title, courseSlug: context.course.slug, accent: context.course.accent, issuedAt: attempt.createdAt };
-    });
+    const certificates = attempts
+      .map((attempt) => ({ attempt, context: findQuiz(attempt.quizId) }))
+      .filter(({ attempt, context }) => attempt.passed && context?.quiz.kind === 'module')
+      .map(({ attempt, context }) => certificateView(context.course, attempt));
     const startedCourses = courses.filter((course) => course.progress > 0 && course.progress < 100);
     return {
       summary: { totalCourses: courses.length, totalChapters: allChapters, completedChapters, passedAttempts: attempts.filter((attempt) => attempt.passed).length, totalAttempts: attempts.length, progress: allChapters ? Math.round((completedChapters / allChapters) * 100) : 0 },
@@ -321,41 +383,42 @@ async function routeGet(path) {
       certificates,
     };
   }
+
   if (path === '/quizzes/attempts') {
-    const user = requireUser();
-    return { attempts: getAttempts(user.id).map(attemptView).filter(Boolean) };
+    return { attempts: getAttempts().map(attemptView).filter(Boolean) };
   }
-  if (path === '/users/profile') return { user: publicUser(requireUser()) };
+
+  if (path === '/users/profile') {
+    return { user: state().profile };
+  }
+
   if (path === '/admin/courses') {
-    requireAdmin();
     return { courses: state().courses.map((course) => ({ ...courseSummary(course), chapterCount: course.chapters.length, quizCount: course.chapters.filter((chapter) => chapter.questions?.length).length + (course.final?.length ? 1 : 0) })) };
+  }
+
+  // Admin detail: also serves unpublished modules, unlike the public course route.
+  const adminCourseMatch = path.match(/^\/admin\/courses\/([^/]+)$/);
+  if (adminCourseMatch) {
+    const course = findCourseById(decodeURIComponent(adminCourseMatch[1]));
+    if (!course) fail(404, 'Module introuvable.');
+    const chapters = chapterViews(course);
+    return { course: courseDetail(course, chapters), chapters };
   }
 
   const courseMatch = path.match(/^\/courses\/([^/]+)$/);
   if (courseMatch) {
     const course = state().courses.find((item) => item.slug === decodeURIComponent(courseMatch[1]) && item.published !== false);
     if (!course) fail(404, 'Module introuvable.');
-    const user = courseUser();
-    const progress = userProgress(user.id);
-    const attempts = getAttempts(user.id);
-    const chapters = course.chapters.map((chapter) => {
-      const quiz = chapterQuiz(course, chapter);
-      const bestAttempt = quiz ? attempts.filter((attempt) => attempt.quizId === quiz.id).sort((a, b) => b.score - a.score)[0] : null;
-      return { ...chapter, durationMinutes: chapter.duration, completed: Boolean(progress[chapter.id]), quiz: quiz ? { ...quiz, bestAttempt: bestAttempt ? { id: bestAttempt.id, score: bestAttempt.score, total: bestAttempt.total, passed: bestAttempt.passed, createdAt: bestAttempt.createdAt } : null } : null };
-    });
-    const completed = chapters.filter((chapter) => chapter.completed).length;
-    const final = finalQuiz(course);
-    const bestFinal = final ? attempts.filter((attempt) => attempt.quizId === final.id).sort((a, b) => b.score - a.score)[0] : null;
-    return { course: { ...courseSummary(course, user?.id), totalChapters: chapters.length, completedChapters: completed, finalQuiz: final ? { ...final, bestAttempt: bestFinal ? { id: bestFinal.id, score: bestFinal.score, total: bestFinal.total, passed: bestFinal.passed, createdAt: bestFinal.createdAt } : null } : null }, chapters };
+    const chapters = chapterViews(course);
+    return { course: courseDetail(course, chapters), chapters };
   }
 
   const quizMatch = path.match(/^\/quizzes\/([^/]+)$/);
   if (quizMatch) {
-    const user = requireCourseUser();
     const context = findQuiz(decodeURIComponent(quizMatch[1]));
     if (!context) fail(404, 'Quiz introuvable.');
     const questions = context.chapter ? context.chapter.questions : context.course.final;
-    const history = getAttempts(user.id).filter((attempt) => attempt.quizId === context.quiz.id).slice(0, 5);
+    const history = getAttempts().filter((attempt) => attempt.quizId === context.quiz.id).slice(0, 5);
     return { quiz: { ...context.quiz, chapterId: context.chapter?.id || null, courseId: context.course.id, courseTitle: context.course.title, courseSlug: context.course.slug, accent: context.course.accent, chapterTitle: context.chapter?.title || null, questions: questions.map((question) => ({ id: question.id, type: question.type, prompt: question.prompt, options: question.options, orderIndex: question.orderIndex })), history: history.map((attempt) => ({ id: attempt.id, score: attempt.score, total: attempt.total, passed: attempt.passed, createdAt: attempt.createdAt })) } };
   }
 
@@ -364,38 +427,10 @@ async function routeGet(path) {
 
 async function routePost(path, body = {}) {
   await ensureState();
-  if (path === '/auth/register') {
-    const name = String(body.name || '').trim();
-    const email = String(body.email || '').trim().toLowerCase();
-    const password = String(body.password || '');
-    if (name.length < 2 || name.length > 80) fail(400, 'Le nom doit contenir entre 2 et 80 caractères.', 'name');
-    if (!/^\S+@\S+\.\S+$/.test(email)) fail(400, 'Saisissez une adresse e-mail valide.', 'email');
-    validatePassword(password);
-    const current = state();
-    if (current.users.some((user) => user.email === email)) fail(409, 'Un compte utilise déjà cette adresse e-mail.', 'email');
-    const user = { id: id('user'), name, email, passwordHash: await hashPassword(password), role: 'student', avatar: null, bio: '', createdAt: now() };
-    saveState({ ...current, users: [...current.users, user] });
-    mergeGuestData(user.id);
-    write(STORAGE.session, user.id);
-    return { user: publicUser(user) };
-  }
-  if (path === '/auth/login') {
-    const email = String(body.email || '').trim().toLowerCase();
-    const password = String(body.password || '');
-    const user = state().users.find((item) => item.email === email);
-    if (!user || await hashPassword(password) !== user.passwordHash) fail(401, 'Adresse e-mail ou mot de passe incorrect.');
-    mergeGuestData(user.id);
-    write(STORAGE.session, user.id);
-    return { user: publicUser(user) };
-  }
-  if (path === '/auth/logout') {
-    try { window.localStorage.removeItem(STORAGE.session); } catch { /* memory fallback */ }
-    memory.delete(STORAGE.session);
-    return null;
-  }
+  localProfile();
+
   const attemptMatch = path.match(/^\/quizzes\/([^/]+)\/attempts$/);
   if (attemptMatch) {
-    const user = requireCourseUser();
     const context = findQuiz(attemptMatch[1]);
     if (!context) fail(404, 'Quiz introuvable.');
     const questions = context.chapter ? context.chapter.questions : context.course.final;
@@ -406,36 +441,38 @@ async function routePost(path, body = {}) {
       return { questionId: question.id, selectedIndex: hasAnswer ? selectedIndex : null, correctIndex: question.correct, correct: hasAnswer && selectedIndex === question.correct, explanation: question.explanation };
     });
     const correctCount = results.filter((result) => result.correct).length;
-    const score = Math.round((correctCount / questions.length) * 100);
+    const score = questions.length ? Math.round((correctCount / questions.length) * 100) : 0;
     const passed = score >= context.quiz.passScore;
-    const attempt = { id: id('attempt'), userId: user.id, quizId: context.quiz.id, score, total: questions.length, passed, answers, createdAt: now() };
+    const attempt = { id: id('attempt'), userId: LOCAL_PROFILE_ID, quizId: context.quiz.id, score, total: questions.length, passed, answers, createdAt: now() };
     const current = state();
-    saveState({ ...current, attempts: [...current.attempts, attempt] });
-    let certificate = null;
-    if (passed && context.quiz.kind === 'module') certificate = { id: `DJG-${context.course.id.replace('course-', '').toUpperCase()}-${user.id.slice(-6).toUpperCase()}`, courseTitle: context.course.title, courseSlug: context.course.slug, accent: context.course.accent, issuedAt: attempt.createdAt };
+    saveState({ ...current, attempts: [...(current.attempts || []), attempt] });
+    const certificate = passed && context.quiz.kind === 'module'
+      ? certificateView(context.course, attempt)
+      : null;
     return { attempt: { id: attempt.id, quizId: attempt.quizId, quizTitle: context.quiz.title, score, total: questions.length, correctCount, passed, passScore: context.quiz.passScore, createdAt: attempt.createdAt, results }, certificate };
   }
 
   if (path === '/admin/courses') {
-    requireAdmin();
     const current = state();
-    const payload = {
-      slug: slugify(body.slug || body.title),
-      technology: String(body.technology || '').trim(),
-      title: String(body.title || '').trim(),
-      shortDescription: String(body.shortDescription || '').trim(),
-      description: String(body.description || '').trim(),
-      level: String(body.level || 'Débutant'),
-      duration: Number(body.durationMinutes || 120),
-      icon: String(body.icon || 'code-2'),
-      accent: String(body.accent || '#00ff9d'),
-      published: body.published !== false,
-    };
-    if (!payload.title || !payload.technology || !payload.shortDescription || !payload.description) fail(400, 'Les informations essentielles du module sont obligatoires.');
-    if (current.courses.some((course) => course.slug === payload.slug)) payload.slug = `${payload.slug}-${Date.now().toString(36).slice(-5)}`;
-    const course = { id: id('course'), orderIndex: current.courses.length + 1, chapters: [], final: [], ...payload };
+    const input = readCourseInput(body, { title: '', technology: '', shortDescription: '', description: '', level: 'Débutant', icon: 'code-2', accent: '#00ff9d', published: true, duration: 120 });
+    if (!input.title || !input.technology || !input.shortDescription || !input.description) fail(400, 'Les informations essentielles du module sont obligatoires.');
+    let slug = slugify(body.slug || input.title);
+    if (current.courses.some((course) => course.slug === slug)) slug = `${slug}-${Date.now().toString(36).slice(-5)}`;
+    const course = { id: id('course'), orderIndex: current.courses.length + 1, chapters: [], final: [], ...input, slug };
     saveState({ ...current, courses: [...current.courses, course] });
     return { course, message: 'Module créé.' };
+  }
+
+  const adminChapterMatch = path.match(/^\/admin\/courses\/([^/]+)\/chapters$/);
+  if (adminChapterMatch) {
+    const current = state();
+    const course = current.courses.find((item) => item.id === adminChapterMatch[1]);
+    if (!course) fail(404, 'Module introuvable.');
+    if (!String(body.title || '').trim() || !String(body.summary || '').trim() || !String(body.content || '').trim()) fail(400, 'Le titre, le résumé et le contenu sont obligatoires.');
+    const chapter = { id: id('chapter'), slug: slugify(body.slug || body.title), title: String(body.title).trim(), summary: String(body.summary).trim(), content: String(body.content).trim(), code: String(body.code || ''), language: String(body.language || 'text').toLowerCase(), duration: Number(body.durationMinutes || 30), questions: [] };
+    const updated = { ...course, chapters: [...course.chapters, chapter] };
+    saveState({ ...current, courses: current.courses.map((item) => item.id === course.id ? updated : item) });
+    return { chapter, message: 'Chapitre créé.' };
   }
 
   fail(404, 'Point de terminaison introuvable.');
@@ -443,57 +480,46 @@ async function routePost(path, body = {}) {
 
 async function routePatch(path, body = {}) {
   await ensureState();
+  const profile = localProfile();
+
   const progressMatch = path.match(/^\/courses\/([^/]+)\/chapters\/([^/]+)\/progress$/);
   if (progressMatch) {
-    const user = requireCourseUser();
     const course = findCourseById(progressMatch[1]);
     const chapter = course?.chapters.find((item) => item.id === progressMatch[2]);
     if (!course || !chapter) fail(404, 'Chapitre introuvable.');
     const current = state();
-    const nextProgress = { ...(current.progress || {}) };
-    nextProgress[user.id] = { ...(nextProgress[user.id] || {}), [chapter.id]: Boolean(body.completed) };
-    saveState({ ...current, progress: nextProgress });
-    return { completed: Boolean(body.completed), courseProgress: courseSummary(course, user.id).progress };
+    const completed = Boolean(body.completed);
+    saveState({ ...current, progress: { ...(current.progress || {}), [LOCAL_PROFILE_ID]: { ...(current.progress?.[LOCAL_PROFILE_ID] || {}), [chapter.id]: completed } } });
+    return { completed, courseProgress: courseSummary(course).progress };
   }
-  if (path === '/users/password') {
-    const user = requireUser();
-    const current = state();
-    const currentUserRecord = current.users.find((item) => item.id === user.id);
-    if (await hashPassword(String(body.currentPassword || '')) !== currentUserRecord.passwordHash) fail(400, 'Le mot de passe actuel est incorrect.', 'currentPassword');
-    validatePassword(String(body.newPassword || ''));
-    const newPasswordHash = await hashPassword(body.newPassword);
-    saveState({ ...current, users: current.users.map((item) => item.id === user.id ? { ...item, passwordHash: newPasswordHash } : item) });
-    return { message: 'Mot de passe mis à jour.' };
-  }
-  const profileMatch = path.match(/^\/users\/profile$/);
-  if (profileMatch) {
-    const user = requireUser();
-    const name = String(body.name ?? user.name).trim();
-    const bio = String(body.bio ?? user.bio ?? '').trim();
-    const avatar = body.avatar === null ? null : String(body.avatar ?? user.avatar ?? '').trim() || null;
+
+  if (path === '/users/profile' || path === '/profile') {
+    const name = String(body.name ?? profile.name).trim();
+    const bio = String(body.bio ?? profile.bio ?? '').trim();
+    const avatar = body.avatar === null ? null : String(body.avatar ?? profile.avatar ?? '').trim() || null;
     if (name.length < 2 || name.length > 80) fail(400, 'Le nom doit contenir entre 2 et 80 caractères.', 'name');
     if (bio.length > 240) fail(400, 'La bio ne peut pas dépasser 240 caractères.', 'bio');
     if (avatar && (!/^data:image\/(png|jpeg|webp);base64,/.test(avatar) || avatar.length > 600000)) fail(400, 'L’avatar doit être une image PNG, JPEG ou WebP de moins de 450 Ko.', 'avatar');
-    const current = state();
-    const updated = { ...current, users: current.users.map((item) => item.id === user.id ? { ...item, name, bio, avatar } : item) };
-    saveState(updated);
-    return { user: publicUser(updated.users.find((item) => item.id === user.id)), message: 'Profil mis à jour.' };
+    const updated = { ...profile, name, bio, avatar };
+    saveState({ ...state(), profile: updated });
+    return { user: updated, message: 'Profil mis à jour.' };
   }
 
   const courseMatch = path.match(/^\/admin\/courses\/([^/]+)$/);
   if (courseMatch) {
-    requireAdmin();
     const current = state();
     const existing = current.courses.find((course) => course.id === courseMatch[1]);
     if (!existing) fail(404, 'Module introuvable.');
-    const updated = { ...existing, ...body, id: existing.id, slug: slugify(body.slug || body.title || existing.slug), duration: Number(body.durationMinutes ?? existing.duration), shortDescription: body.shortDescription ?? existing.shortDescription, published: body.published ?? existing.published };
+    const changes = readCourseInput(body, {});
+    if (changes.title !== undefined && !changes.title) fail(400, 'Le titre du module ne peut pas être vide.', 'title');
+    const defined = Object.fromEntries(Object.entries(changes).filter(([, value]) => value !== undefined));
+    const updated = { ...existing, ...defined, id: existing.id, slug: slugify(body.slug || changes.title || existing.slug) };
     saveState({ ...current, courses: current.courses.map((course) => course.id === existing.id ? updated : course) });
     return { course: updated, message: 'Module mis à jour.' };
   }
 
   const chapterMatch = path.match(/^\/admin\/chapters\/([^/]+)$/);
   if (chapterMatch) {
-    requireAdmin();
     const current = state();
     const course = current.courses.find((item) => item.chapters.some((chapter) => chapter.id === chapterMatch[1]));
     if (!course) fail(404, 'Chapitre introuvable.');
@@ -502,12 +528,14 @@ async function routePatch(path, body = {}) {
     saveState({ ...current, courses: current.courses.map((item) => item.id === course.id ? { ...item, chapters: item.chapters.map((chapter) => chapter.id === oldChapter.id ? updatedChapter : chapter) } : item) });
     return { chapter: updatedChapter, message: 'Chapitre mis à jour.' };
   }
+
   fail(404, 'Point de terminaison introuvable.');
 }
 
 async function routeDelete(path) {
   await ensureState();
-  requireAdmin();
+  localProfile();
+
   const courseMatch = path.match(/^\/admin\/courses\/([^/]+)$/);
   if (courseMatch) {
     const current = state();
@@ -532,38 +560,19 @@ async function routeDelete(path) {
   fail(404, 'Point de terminaison introuvable.');
 }
 
-async function routePostAdminChapter(path, body) {
-  await ensureState();
-  requireAdmin();
-  const courseMatch = path.match(/^\/admin\/courses\/([^/]+)\/chapters$/);
-  if (!courseMatch) fail(404, 'Point de terminaison introuvable.');
-  const current = state();
-  const course = current.courses.find((item) => item.id === courseMatch[1]);
-  if (!course) fail(404, 'Module introuvable.');
-  if (!String(body.title || '').trim() || !String(body.summary || '').trim() || !String(body.content || '').trim()) fail(400, 'Le titre, le résumé et le contenu sont obligatoires.');
-  const chapter = { id: id('chapter'), slug: slugify(body.slug || body.title), title: String(body.title).trim(), summary: String(body.summary).trim(), content: String(body.content).trim(), code: String(body.code || ''), language: String(body.language || 'text').toLowerCase(), duration: Number(body.durationMinutes || 30), questions: [] };
-  const updated = { ...course, chapters: [...course.chapters, chapter] };
-  saveState({ ...current, courses: current.courses.map((item) => item.id === course.id ? updated : item) });
-  return { chapter, message: 'Chapitre créé.' };
-}
-
 export const api = {
   async get(path) { return routeGet(path); },
-  async post(path, body) {
-    if (/^\/admin\/courses\/[^/]+\/chapters$/.test(path)) return routePostAdminChapter(path, body);
-    return routePost(path, body);
-  },
+  async post(path, body) { return routePost(path, body); },
   async patch(path, body) { return routePatch(path, body); },
   async delete(path) { return routeDelete(path); },
 };
 
 export function resetLocalData() {
   try {
-    [...Object.values(STORAGE), 'djangue.state.v1'].forEach((key) => window.localStorage.removeItem(key));
+    [STATE_KEY, ...Object.values(LEGACY_KEYS)].forEach((key) => window.localStorage.removeItem(key));
   } catch {
     // Ignore unavailable storage.
   }
   memory.clear();
-  memory.delete('djangue.state.v1');
   initialization = undefined;
 }

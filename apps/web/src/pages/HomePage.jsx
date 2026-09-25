@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, ChevronRight, Command, Gauge, Layers3, LockKeyhole, MoveUpRight, ShieldCheck, Sparkles, Terminal, Zap } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ChevronRight, Command, Gauge, Layers3, LockKeyhole, MoveUpRight, ShieldCheck, Terminal, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
-import Button, { buttonStyles } from '../components/ui/Button.jsx';
+import { buttonStyles } from '../components/ui/Button.jsx';
 import CourseCard from '../components/course/CourseCard.jsx';
 import Typewriter from '../components/effects/Typewriter.jsx';
 import StatusBadge from '../components/ui/StatusBadge.jsx';
 import { api } from '../lib/api.js';
-import { useAuth } from '../contexts/AuthContext.jsx';
 
 const capabilities = [
   { icon: Layers3, title: 'Parcours structurés', text: 'Des séquences courtes, ordonnées et directement liées aux pratiques professionnelles.' },
@@ -17,7 +16,6 @@ const capabilities = [
 ];
 
 export default function HomePage() {
-  const { user } = useAuth();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -31,10 +29,10 @@ export default function HomePage() {
     return () => { active = false; };
   }, []);
 
-  const primaryCta = user ? '/tableau-de-bord' : '/catalogue';
-  const primaryLabel = user ? 'Ouvrir mon tableau de bord' : 'Explorer les cours';
-  const secondaryCta = user ? '/catalogue' : '/inscription';
-  const secondaryLabel = user ? 'Explorer les modules' : 'Créer un compte';
+  const primaryCta = '/tableau-de-bord';
+  const primaryLabel = 'Ouvrir mon tableau de bord';
+  const secondaryCta = '/catalogue';
+  const secondaryLabel = 'Explorer les modules';
 
   return (
     <div>
@@ -130,7 +128,7 @@ export default function HomePage() {
         <div className="relative overflow-hidden border border-neon/35 bg-[#0b1516] p-8 sm:p-12">
           <div className="absolute inset-0 cyber-grid opacity-60" />
           <div className="absolute right-0 top-0 h-full w-1/2 bg-[radial-gradient(circle_at_center,rgba(0,255,157,.12),transparent_65%)]" />
-          <div className="relative max-w-2xl"><p className="eyebrow mb-3">Prêt à initialiser votre session</p><h2 className="font-display text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">Votre prochaine compétence commence par une première ligne de code.</h2><p className="mt-4 max-w-xl text-sm leading-6 text-[#a5b5b7]">Créez un compte, choisissez un module et avancez à votre rythme. Votre progression reste disponible à chaque connexion.</p><Link to={primaryCta} className={buttonStyles({ size: 'lg', className: 'mt-7' })}>{primaryLabel} <ArrowRight size={16} /></Link></div>
+          <div className="relative max-w-2xl"><p className="eyebrow mb-3">Prêt à initialiser votre session</p><h2 className="font-display text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">Votre prochaine compétence commence par une première ligne de code.</h2><p className="mt-4 max-w-xl text-sm leading-6 text-[#a5b5b7]">Aucun compte à créer : choisissez un module et avancez à votre rythme. Votre progression reste disponible à chaque visite.</p><Link to={primaryCta} className={buttonStyles({ size: 'lg', className: 'mt-7' })}>{primaryLabel} <ArrowRight size={16} /></Link></div>
         </div>
       </section>
     </div>

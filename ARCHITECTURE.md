@@ -3,7 +3,7 @@
 ## Stack
 
 - Web : React, Vite, React Router, Tailwind CSS, Framer Motion, Monaco Editor.
-- State : Context API pour l'authentification, les notifications et le thème.
+- State : Context API pour le profil local, les notifications et le thème.
 - Persistance : `localStorage` pour une application autonome et un déploiement statique.
 - Build : un seul workspace web, sans API ni base de données externe.
 
@@ -16,7 +16,6 @@ djangue/
 |       |-- index.html
 |       `-- src/
 |           |-- components/
-|           |   |-- auth/
 |           |   |-- course/
 |           |   |-- effects/
 |           |   |-- layout/
@@ -30,36 +29,48 @@ djangue/
 `-- ARCHITECTURE.md
 ```
 
+## Pas d'authentification
+
+L'application ne possède ni inscription, ni connexion, ni mot de passe. Toutes les routes sont publiques : `/tableau-de-bord`, `/profil` et `/admin` sont rendues dans `PublicLayout` et ne passent par aucun garde d'accès.
+
+Un unique profil local est créé à la première requête qui le demande, puis persisté. Il porte un nom, une bio et un avatar, tous trois modifiables depuis `/profil`.
+
+Conséquence assumée : l'espace d'administration est ouvert, puisqu'il n'y a plus de rôle à vérifier. C'est acceptable tant que les données restent dans le navigateur de la personne.
+
 ## Persistance locale
 
-`src/lib/api.js` expose une interface proche de l'API originale pour permettre aux pages de rester indépendantes du mode de stockage :
+`src/lib/api.js` expose une interface proche d'une API REST pour permettre aux pages de rester indépendantes du mode de stockage :
 
-- `djangue.state.v1` : comptes, modules, progression et tentatives.
-- `djangue.session.v1` : utilisateur connecté réel.
-- Session invitée virtuelle : les visiteurs peuvent parcourir les cours et faire des quiz sans compte ; leur progression est fusionnée lors de la connexion.
+- `djangue.state.v1` : profil, modules, progression et tentatives.
 - `djangue.theme.v1` : thème sombre ou clair.
+
+L'état a une forme unique :
+
+```js
+{
+  profile: { id: 'local-profile', name, bio, avatar, createdAt },
+  courses: [ /* modules */ ],
+  progress: { 'local-profile': { 'chapter-html-1': true } },
+  attempts: [ /* tentatives de quiz */ ],
+}
+```
+
+`migrateState()` convertit l'ancien format basé sur les comptes (`users` + `djangue.session.v1` + une session invitée `guest-local`) vers ce format : l'utilisateur connecté ou l'étudiant de démonstration devient le profil local, et sa progression ainsi que ses tentatives sont conservées. La migration est jouée une seule fois, au premier chargement.
 
 Pour une version multi-utilisateur, `src/lib/api.js` peut être remplacé par un client Firebase ou une API HTTP sans modifier les pages.
 
 ## Composants clés
 
-- `AuthProvider` : session, inscription, connexion, déconnexion et rafraîchissement.
+- `AuthProvider` : charge et met à jour le profil local. Le nom historique est conservé pour ne pas casser les imports existants.
 - `ThemeProvider` : bascule clair/sombre persistante.
-- `AuthField` / `PasswordField` : champs accessibles avec erreurs ciblées.
-- `ProtectedRoute` / `RoleRoute` : contrôle d'accès côté client.
 - `CourseCard`, `ChapterNav`, `CodeLab` : catalogue, navigation et laboratoire.
 - `ProgressBar`, `StatusBadge`, `ToastProvider` : feedback et progression.
 
-## Parcours authentification
+## Points d'attention
 
-1. L'utilisateur ouvre `/connexion` ou `/inscription`.
-2. `api.js` lit et écrit le compte dans le stockage local du navigateur.
-3. Le mot de passe est haché avec l'API Web Crypto avant stockage.
-4. `AuthProvider` recharge la session avec `api.get('/auth/me')`.
-5. Les routes protégées utilisent `ProtectedRoute` et `RoleRoute`.
-6. La déconnexion supprime la session locale.
-
-Ce mode est pratique pour un portfolio, une démonstration ou un déploiement statique. Pour une plateforme publique multi-utilisateur, il faudra remplacer le stockage local par Firebase, Supabase ou une API sécurisée.
+- `readCourseInput()` liste explicitement les champs modifiables d'un module. Le PATCH d'administration reçoit souvent un objet de résumé (`progress`, `totalChapters`, `chapterCount`…) : sans cette liste blanche, ces clés de lecture fuite dans le stockage.
+- `GET /admin/courses/:id` sert le détail d'un module, y compris non publié. `GET /courses/:slug` filtre les brouillons, donc l'administration ne peut pas passer par là pour les éditer.
+- `ensureState()` remet `initialization` à `undefined` en cas d'échec : une promesse rejetée ne doit pas empoisonner toutes les requêtes suivantes.
 
 ## Laboratoire de code
 
@@ -72,12 +83,11 @@ Ce mode est pratique pour un portfolio, une démonstration ou un déploiement st
 
 - `/` : accueil.
 - `/catalogue` : catalogue et filtres.
-- `/connexion`, `/inscription` : authentification.
-- `/tableau-de-bord` : progression globale et activité.
 - `/cours/:slug` : contenu, navigation et laboratoire.
-- `/quiz/:quizId` : évaluation et résultats, accessible sans compte.
-- `/profil` : informations, avatar et mot de passe.
-- `/admin` : gestion des modules, réservé aux administrateurs.
+- `/quiz/:quizId` : évaluation et résultats.
+- `/tableau-de-bord` : progression globale et activité.
+- `/profil` : nom, bio, avatar et historique des quiz.
+- `/admin` : gestion des modules et des chapitres.
 
 ## Déploiement
 

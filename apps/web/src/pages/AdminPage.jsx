@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { BookPlus, Check, ChevronDown, Edit3, Eye, EyeOff, FilePlus2, Layers3, Plus, Save, Settings2, Trash2, X } from 'lucide-react';
-import Button, { buttonStyles } from '../components/ui/Button.jsx';
+import { BookPlus, Edit3, Eye, EyeOff, FilePlus2, Layers3, Plus, Settings2, Trash2, X } from 'lucide-react';
+import Button from '../components/ui/Button.jsx';
 import CourseIcon from '../components/ui/CourseIcon.jsx';
 import StatusBadge from '../components/ui/StatusBadge.jsx';
 import { PageLoader } from '../components/ui/LoadingState.jsx';
@@ -33,7 +33,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!selected) { setCourseDetail(null); return; }
-    api.get(`/courses/${selected.slug}`).then((data) => setCourseDetail(data)).catch((error) => toast.error(error.message));
+    api.get(`/admin/courses/${selected.id}`).then((data) => setCourseDetail(data)).catch((error) => toast.error(error.message));
     // Detail is refreshed when the selected module changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id]);
@@ -80,7 +80,7 @@ export default function AdminPage() {
       await api.post(`/admin/courses/${selected.id}/chapters`, chapterForm);
       setChapterForm(emptyChapter);
       setShowChapterForm(false);
-      const data = await api.get(`/courses/${selected.slug}`);
+      const data = await api.get(`/admin/courses/${selected.id}`);
       setCourseDetail(data);
       await loadCourses();
       toast.success('Chapitre ajouté au module.');
@@ -95,7 +95,7 @@ export default function AdminPage() {
     if (!window.confirm('Supprimer ce chapitre et ses données associées ?')) return;
     try {
       await api.delete(`/admin/chapters/${chapterId}`);
-      const data = await api.get(`/courses/${selected.slug}`);
+      const data = await api.get(`/admin/courses/${selected.id}`);
       setCourseDetail(data);
       await loadCourses();
       toast.info('Chapitre supprimé.');
@@ -106,9 +106,9 @@ export default function AdminPage() {
 
   const togglePublished = async (course) => {
     try {
-      await api.patch(`/admin/courses/${course.id}`, { ...course, published: !course.published });
+      await api.patch(`/admin/courses/${course.id}`, { published: !course.published });
       await loadCourses();
-      if (selected?.id === course.id) setSelected((current) => ({ ...current, published: !current.published }));
+      if (selected?.id === course.id) setSelected((current) => ({ ...current, published: !course.published }));
       toast.info(course.published ? 'Module masqué du catalogue.' : 'Module publié au catalogue.');
     } catch (error) {
       toast.error(error.message);

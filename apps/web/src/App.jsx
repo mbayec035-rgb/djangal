@@ -1,15 +1,11 @@
 import { lazy, Suspense } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import { PageLoader } from './components/ui/LoadingState.jsx';
 import PublicLayout from './components/layout/PublicLayout.jsx';
-import AuthLayout from './components/layout/AuthLayout.jsx';
-import { ProtectedRoute, RoleRoute } from './components/layout/RouteGuards.jsx';
 
 const HomePage = lazy(() => import('./pages/HomePage.jsx'));
 const CatalogPage = lazy(() => import('./pages/CatalogPage.jsx'));
 const CoursePage = lazy(() => import('./pages/CoursePage.jsx'));
-const LoginPage = lazy(() => import('./pages/LoginPage.jsx'));
-const RegisterPage = lazy(() => import('./pages/RegisterPage.jsx'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage.jsx'));
 const QuizPage = lazy(() => import('./pages/QuizPage.jsx'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage.jsx'));
@@ -25,24 +21,11 @@ export default function App() {
           <Route path="catalogue" element={<CatalogPage />} />
           <Route path="cours/:slug" element={<CoursePage />} />
           <Route path="quiz/:quizId" element={<QuizPage />} />
-        </Route>
-
-        <Route element={<AuthLayout />}>
-          <Route path="connexion" element={<LoginPage />} />
-          <Route path="inscription" element={<RegisterPage />} />
-        </Route>
-
-        <Route element={<ProtectedRoute />}>
           <Route path="tableau-de-bord" element={<DashboardPage />} />
           <Route path="profil" element={<ProfilePage />} />
-        </Route>
-
-        <Route element={<RoleRoute role="admin" />}>
           <Route path="admin" element={<AdminPage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
-
-        <Route path="/connexion" element={<Navigate to="/connexion" replace />} />
-        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
   );

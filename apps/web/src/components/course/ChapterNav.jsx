@@ -1,4 +1,4 @@
-import { Check, Circle, FileText, PlayCircle } from 'lucide-react';
+import { Check, FileText, PlayCircle } from 'lucide-react';
 import { cn } from '../../lib/utils.js';
 
 export default function ChapterNav({ chapters, activeId, onSelect }) {

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Award, BarChart3, BookOpen, CheckCircle2, CircleAlert, Clock3, Flame, Gauge, Layers3, Play, ShieldCheck, Trophy, Zap } from 'lucide-react';
+import { ArrowRight, Award, BarChart3, CheckCircle2, CircleAlert, Clock3, Layers3, Play, ShieldCheck, Trophy } from 'lucide-react';
 import { motion } from 'framer-motion';
-import Button, { buttonStyles } from '../components/ui/Button.jsx';
+import { buttonStyles } from '../components/ui/Button.jsx';
 import CourseIcon from '../components/ui/CourseIcon.jsx';
 import ProgressBar from '../components/ui/ProgressBar.jsx';
 import StatusBadge from '../components/ui/StatusBadge.jsx';
@@ -10,7 +10,6 @@ import { PageLoader } from '../components/ui/LoadingState.jsx';
 import { api } from '../lib/api.js';
 import { formatRelativeDate, initials } from '../lib/utils.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
-import { useToast } from '../contexts/ToastContext.jsx';
 
 function ProgressRing({ value }) {
   const radius = 38;
@@ -34,7 +33,6 @@ function StatCard({ icon: Icon, label, value, detail, tone = 'neon' }) {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const toast = useToast();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -61,7 +59,7 @@ export default function DashboardPage() {
         <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4 sm:gap-5">
             {user.avatar ? <img src={user.avatar} alt="" className="h-16 w-16 border border-neon/50 object-cover sm:h-20 sm:w-20" /> : <div className="grid h-16 w-16 place-items-center border border-neon/40 bg-neon/5 font-mono text-xl font-semibold text-neon sm:h-20 sm:w-20">{initials(user.name)}</div>}
-            <div><p className="eyebrow mb-2">Session active / {user.role === 'admin' ? 'administrateur' : 'étudiant'}</p><h1 className="font-display text-2xl font-semibold tracking-[-0.04em] text-white sm:text-3xl">Bonjour, {firstName}<span className="text-neon">.</span></h1><p className="mt-2 text-sm text-muted">Votre espace de progression est synchronisé.</p></div>
+            <div><p className="eyebrow mb-2">Profil local · aucune authentification</p><h1 className="font-display text-2xl font-semibold tracking-[-0.04em] text-white sm:text-3xl">Bonjour, {firstName}<span className="text-neon">.</span></h1><p className="mt-2 text-sm text-muted">Votre progression est enregistrée dans ce navigateur.</p></div>
           </div>
           <div className="flex items-center gap-5 rounded-none border border-line bg-[#0b1016] px-5 py-4"><ProgressRing value={summary.progress} /><div><p className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted">Progression globale</p><p className="mt-1 font-display text-2xl font-semibold text-white">{summary.completedChapters}<span className="text-muted"> / {summary.totalChapters}</span></p><p className="mt-1 text-xs text-muted">chapitres terminés</p></div></div>
         </div>

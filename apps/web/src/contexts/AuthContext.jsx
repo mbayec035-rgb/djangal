@@ -1,60 +1,44 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api.js';
 
-const AuthContext = createContext(null);
+const ProfileContext = createContext(null);
 
+/**
+ * There is no account system: a single local profile is created on the first
+ * request and reused afterwards. `user` is never null once loading is done.
+ */
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     try {
-      const data = await api.get('/auth/me');
+      const data = await api.get('/profile');
       setUser(data.user);
       return data.user;
-    } catch {
+    } catch (error) {
       setUser(null);
-      return null;
+      throw error;
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    refresh();
+    refresh().catch(() => {});
   }, [refresh]);
-
-  const login = useCallback(async (credentials) => {
-    const data = await api.post('/auth/login', credentials);
-    setUser(data.user);
-    return data.user;
-  }, []);
-
-  const register = useCallback(async (details) => {
-    const data = await api.post('/auth/register', details);
-    setUser(data.user);
-    return data.user;
-  }, []);
-
-  const logout = useCallback(async () => {
-    try {
-      await api.post('/auth/logout', {});
-    } finally {
-      setUser(null);
-    }
-  }, []);
 
   const updateUser = useCallback((updatedUser) => {
     setUser(updatedUser);
   }, []);
 
-  const value = useMemo(() => ({ user, loading, login, register, logout, refresh, updateUser }), [user, loading, login, register, logout, refresh, updateUser]);
+  const value = useMemo(() => ({ user, loading, refresh, updateUser }), [user, loading, refresh, updateUser]);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
+  const context = useContext(ProfileContext);
   if (!context) throw new Error('useAuth doit être utilisé dans AuthProvider.');
   return context;
 }

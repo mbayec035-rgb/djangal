@@ -20,13 +20,13 @@ export default function Footer() {
             <Link to="/catalogue" className="transition hover:text-neon">Catalogue</Link>
             <Link to="/tableau-de-bord" className="transition hover:text-neon">Tableau de bord</Link>
             <Link to="/profil" className="transition hover:text-neon">Mon profil</Link>
-            <Link to="/inscription" className="transition hover:text-neon">Créer un compte</Link>
+            <Link to="/admin" className="transition hover:text-neon">Administration</Link>
           </div>
         </div>
         <div>
           <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[#cbd3d8]">Environnement</p>
           <div className="mt-4 space-y-3 text-sm text-muted">
-            <p className="flex items-center gap-2"><ShieldCheck size={15} className="text-electric" /> Authentification JWT</p>
+            <p className="flex items-center gap-2"><ShieldCheck size={15} className="text-electric" /> Aucun compte requis</p>
             <p className="flex items-center gap-2"><Radio size={15} className="text-neon" /> Progression persistante</p>
             <p className="flex items-center gap-2"><Github size={15} className="text-[#a3afb7]" /> Projet React et Node.js</p>
           </div>

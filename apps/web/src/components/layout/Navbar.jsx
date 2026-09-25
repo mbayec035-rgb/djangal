@@ -1,22 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { ChevronDown, LogOut, Menu, Settings, ShieldCheck, UserRound, X } from 'lucide-react';
+import { Link, NavLink, useLocation } from 'react-router-dom';
+import { ChevronDown, Gauge, Menu, UserRound, X } from 'lucide-react';
 import Logo from '../ui/Logo.jsx';
 import ThemeToggle from '../ui/ThemeToggle.jsx';
-import { buttonStyles } from '../ui/Button.jsx';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import { cn, initials } from '../../lib/utils.js';
 
 const navigation = [
   { to: '/', label: 'Accueil', end: true },
   { to: '/catalogue', label: 'Catalogue' },
-  { to: '/tableau-de-bord', label: 'Tableau de bord', protected: true },
-  { to: '/admin', label: 'Administration', role: 'admin' },
+  { to: '/tableau-de-bord', label: 'Tableau de bord' },
+  { to: '/admin', label: 'Administration' },
 ];
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -30,18 +28,10 @@ export default function Navbar() {
     return () => document.removeEventListener('pointerdown', close);
   }, []);
 
-  useEffect(() => setMobileOpen(false), [location.pathname]);
-
-  const visibleLinks = navigation.filter((item) => {
-    if (item.protected && !user) return false;
-    if (item.role && user?.role !== item.role) return false;
-    return true;
-  });
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/');
-  };
+  useEffect(() => {
+    setMobileOpen(false);
+    setAccountOpen(false);
+  }, [location.pathname]);
 
   return (
     <header className="sticky top-0 z-50 border-b border-line/90 bg-[#0a0e14]">
@@ -49,7 +39,7 @@ export default function Navbar() {
         <Logo />
 
         <nav className="hidden items-center gap-1 lg:flex" aria-label="Navigation principale">
-          {visibleLinks.map((item) => (
+          {navigation.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -71,7 +61,7 @@ export default function Navbar() {
 
         <div className="hidden items-center gap-3 lg:flex">
           <ThemeToggle className="h-9 w-9" />
-          {user ? (
+          {user && (
             <div className="relative" ref={accountRef}>
               <button
                 type="button"
@@ -92,28 +82,17 @@ export default function Navbar() {
                 <div className="absolute right-0 top-[calc(100%+10px)] w-60 border border-line bg-raised p-2 shadow-2xl">
                   <div className="border-b border-line px-3 py-3">
                     <p className="truncate text-sm font-medium text-white">{user.name}</p>
-                    <p className="mt-1 truncate font-mono text-[10px] text-muted">{user.email}</p>
-                    {user.role === 'admin' && (
-                      <span className="mt-2 inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider text-electric"><ShieldCheck size={11} /> Administrateur</span>
-                    )}
+                    <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-muted">Profil local · enregistré dans ce navigateur</p>
                   </div>
-                  <Link to="/profil" onClick={() => setAccountOpen(false)} className="mt-1 flex items-center gap-2.5 px-3 py-2.5 text-xs text-[#b6c0c6] transition hover:bg-[#1a232c] hover:text-white">
+                  <Link to="/tableau-de-bord" className="mt-1 flex items-center gap-2.5 px-3 py-2.5 text-xs text-[#b6c0c6] transition hover:bg-[#1a232c] hover:text-white">
+                    <Gauge size={15} /> Tableau de bord
+                  </Link>
+                  <Link to="/profil" className="flex items-center gap-2.5 px-3 py-2.5 text-xs text-[#b6c0c6] transition hover:bg-[#1a232c] hover:text-white">
                     <UserRound size={15} /> Mon profil
                   </Link>
-                  <Link to="/profil#securite" onClick={() => setAccountOpen(false)} className="flex items-center gap-2.5 px-3 py-2.5 text-xs text-[#b6c0c6] transition hover:bg-[#1a232c] hover:text-white">
-                    <Settings size={15} /> Sécurité
-                  </Link>
-                  <button type="button" onClick={handleLogout} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-xs text-danger transition hover:bg-danger/5">
-                    <LogOut size={15} /> Se déconnecter
-                  </button>
                 </div>
               )}
             </div>
-          ) : (
-            <>
-              <Link to="/connexion" className={buttonStyles({ variant: 'ghost', size: 'sm' })}>Connexion</Link>
-              <Link to="/inscription" className={buttonStyles({ size: 'sm' })}>Commencer</Link>
-            </>
           )}
         </div>
 
@@ -122,38 +101,25 @@ export default function Navbar() {
           <button
             type="button"
             onClick={() => setMobileOpen((open) => !open)}
-          className="grid h-10 w-10 place-items-center border border-line bg-surface text-white lg:hidden"
-          aria-label={mobileOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
-          aria-expanded={mobileOpen}
-        >
-          {mobileOpen ? <X size={19} /> : <Menu size={19} />}
-        </button>
-      </div>
+            className="grid h-10 w-10 place-items-center border border-line bg-surface text-white lg:hidden"
+            aria-label={mobileOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+            aria-expanded={mobileOpen}
+          >
+            {mobileOpen ? <X size={19} /> : <Menu size={19} />}
+          </button>
+        </div>
       </div>
 
       {mobileOpen && (
         <div className="border-t border-line bg-[#0b1016] lg:hidden">
           <div className="page-shell py-4">
             <nav className="flex flex-col" aria-label="Navigation mobile">
-              {visibleLinks.map((item) => (
+              {navigation.map((item) => (
                 <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => cn('border-b border-line/70 py-3.5 font-mono text-xs uppercase tracking-[0.1em]', isActive ? 'text-neon' : 'text-[#a2adb4]')}>
                   {item.label}
                 </NavLink>
               ))}
             </nav>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              {user ? (
-                <>
-                  <Link to="/profil" className={buttonStyles({ variant: 'outline' })}>Profil</Link>
-                  <button type="button" onClick={handleLogout} className={buttonStyles({ variant: 'danger' })}>Déconnexion</button>
-                </>
-              ) : (
-                <>
-                  <Link to="/connexion" className={buttonStyles({ variant: 'outline' })}>Connexion</Link>
-                  <Link to="/inscription" className={buttonStyles()}>Commencer</Link>
-                </>
-              )}
-            </div>
           </div>
         </div>
       )}

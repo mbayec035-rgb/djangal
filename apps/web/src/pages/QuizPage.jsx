@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check, CheckCircle2, CircleAlert, Clock3, Flag, RotateCcw, Send, ShieldCheck, Trophy, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { ArrowLeft, ArrowRight, Check, Clock3, Flag, RotateCcw, Send, ShieldCheck, Trophy, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button, { buttonStyles } from '../components/ui/Button.jsx';
 import StatusBadge from '../components/ui/StatusBadge.jsx';
@@ -18,7 +18,6 @@ function formatTime(seconds) {
 
 export default function QuizPage() {
   const { quizId } = useParams();
-  const navigate = useNavigate();
   const toast = useToast();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);

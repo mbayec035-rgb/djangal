@@ -10,7 +10,7 @@ export function PageLoader({ label = 'Chargement des données' }) {
         </div>
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.16em] text-[#b1bcc3]">{label}</p>
-          <p className="mt-1 font-mono text-[10px] text-muted">connexion sécurisée</p>
+          <p className="mt-1 font-mono text-[10px] text-muted">chargement local</p>
         </div>
       </div>
     </div>
