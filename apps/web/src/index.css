@@ -6,14 +6,50 @@
   color-scheme: dark;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --page-bg: #0a0e14;
-  --surface: #10161f;
-  --raised: #141c25;
-  --line: #23303a;
-  --text: #e6e6e6;
-  --muted: #82909c;
-  --neon: #00ff9d;
-  --electric: #00d9ff;
+  --color-void: 10 14 20;
+  --color-surface: 16 22 31;
+  --color-raised: 20 28 37;
+  --color-line: 35 48 58;
+  --color-muted: 130 144 156;
+  --color-text: 230 230 230;
+  --color-neon: 0 255 157;
+  --color-electric: 0 217 255;
+  --color-danger: 255 92 122;
+  --color-warning: 255 200 87;
+  --page-bg: rgb(var(--color-void));
+  --surface: rgb(var(--color-surface));
+  --raised: rgb(var(--color-raised));
+  --line: rgb(var(--color-line));
+  --text: rgb(var(--color-text));
+  --muted: rgb(var(--color-muted));
+  --neon: rgb(var(--color-neon));
+  --electric: rgb(var(--color-electric));
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --color-void: 244 248 249;
+  --color-surface: 255 255 255;
+  --color-raised: 238 245 246;
+  --color-line: 200 214 219;
+  --color-muted: 84 102 112;
+  --color-text: 19 33 41;
+  --color-neon: 0 143 95;
+  --color-electric: 0 128 168;
+  --color-danger: 197 45 79;
+  --color-warning: 168 106 0;
+  --page-bg: rgb(var(--color-void));
+  --surface: rgb(var(--color-surface));
+  --raised: rgb(var(--color-raised));
+  --line: rgb(var(--color-line));
+  --text: rgb(var(--color-text));
+  --muted: rgb(var(--color-muted));
+  --neon: rgb(var(--color-neon));
+  --electric: rgb(var(--color-electric));
+}
+
+[data-theme="light"] body {
+  background: var(--page-bg);
 }
 
 * {
@@ -34,6 +70,7 @@ body {
   background: var(--page-bg);
   color: var(--text);
   font-family: 'Inter', system-ui, sans-serif;
+  transition: background-color 180ms ease, color 180ms ease;
 }
 
 ::selection {
@@ -118,13 +155,13 @@ a {
 
   .cyber-grid {
     background-image:
-      linear-gradient(rgba(0, 255, 157, 0.035) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0, 255, 157, 0.035) 1px, transparent 1px);
+      linear-gradient(rgb(var(--color-neon) / 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--color-neon) / 0.045) 1px, transparent 1px);
     background-size: 32px 32px;
   }
 
   .dot-grid {
-    background-image: radial-gradient(circle, rgba(0, 217, 255, 0.13) 1px, transparent 1px);
+    background-image: radial-gradient(circle, rgb(var(--color-electric) / 0.16) 1px, transparent 1px);
     background-size: 22px 22px;
   }
 
@@ -194,6 +231,93 @@ a {
 @keyframes card-scan {
   0% { transform: translateY(0); opacity: 0.9; }
   100% { transform: translateY(520%); opacity: 0; }
+}
+
+[data-theme="light"] [class*="bg-[#"] {
+  background-color: rgb(var(--color-surface)) !important;
+}
+
+[data-theme="light"] [class*="text-[#"] {
+  color: rgb(var(--color-text)) !important;
+}
+
+[data-theme="light"] [class*="border-[#"] {
+  border-color: rgb(var(--color-line)) !important;
+}
+
+[data-theme="light"] .bg-\[\#06100c\] {
+  background-color: rgb(6 16 12) !important;
+}
+
+[data-theme="light"] .bg-\[\#0b1516\] {
+  background-color: rgb(var(--color-neon) / 0.05) !important;
+}
+
+[data-theme="light"] .bg-\[\#10252b\],
+[data-theme="light"] .bg-\[\#1a232c\] {
+  background-color: rgb(var(--color-raised)) !important;
+}
+
+[data-theme="light"] .bg-\[\#1a252d\] {
+  background-color: rgb(var(--color-line)) !important;
+}
+
+[data-theme="light"] .bg-\[\#161015\] {
+  background-color: rgb(var(--color-danger) / 0.06) !important;
+}
+
+[data-theme="light"] .bg-\[\#18ffac\] {
+  background-color: rgb(var(--color-neon)) !important;
+}
+
+[data-theme="light"] .bg-\[\#33414c\] {
+  background-color: rgb(var(--color-muted) / 0.6) !important;
+}
+
+[data-theme="light"] .bg-\[\#ffffff\] {
+  background-color: #ffffff !important;
+}
+
+[data-theme="light"] .text-\[\#06110c\] {
+  color: #06110c !important;
+}
+
+[data-theme="light"] .text-\[\#f2a7b8\] {
+  color: rgb(var(--color-danger)) !important;
+}
+
+[data-theme="light"] .prose-django {
+  color: rgb(var(--color-muted));
+}
+
+[data-theme="light"] .prose-django h2,
+[data-theme="light"] .prose-django h3 {
+  color: rgb(var(--color-text));
+}
+
+[data-theme="light"] .prose-django code:not(pre code) {
+  border-color: rgb(var(--color-line));
+  background: rgb(var(--color-raised));
+  color: rgb(var(--color-electric));
+}
+
+[data-theme="light"] .prose-django pre {
+  background: rgb(var(--color-raised));
+}
+
+[data-theme="light"] ::-webkit-scrollbar-track {
+  background: rgb(var(--color-raised));
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  border-color: rgb(var(--color-raised));
+  background: rgb(var(--color-line));
+}
+
+[data-theme="light"] .shadow-neon-sm,
+[data-theme="light"] .shadow-neon-md,
+[data-theme="light"] .shadow-cyan-sm {
+  box-shadow: 0 8px 24px rgb(var(--color-neon) / 0.1);
 }
 
 .neon-rule {
@@ -278,6 +402,12 @@ a {
 .monaco-shell .monaco-editor,
 .monaco-shell .monaco-editor-background,
 .monaco-shell .monaco-editor .margin {
+  background-color: rgb(var(--color-raised)) !important;
+}
+
+[data-theme="dark"] .monaco-shell .monaco-editor,
+[data-theme="dark"] .monaco-shell .monaco-editor-background,
+[data-theme="dark"] .monaco-shell .monaco-editor .margin {
   background-color: #090d13 !important;
 }
 
@@ -291,6 +421,32 @@ a {
 
 .text-pretty {
   text-wrap: pretty;
+}
+
+@media (max-width: 640px) {
+  .page-shell {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .input-base,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  .prose-django {
+    font-size: 0.95rem;
+    overflow-wrap: anywhere;
+  }
+
+  .prose-django h2 {
+    font-size: 1.3rem;
+  }
+
+  .prose-django h3 {
+    font-size: 0.85rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

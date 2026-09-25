@@ -31,8 +31,10 @@ export default function HomePage() {
     return () => { active = false; };
   }, []);
 
-  const primaryCta = user ? '/tableau-de-bord' : '/inscription';
-  const primaryLabel = user ? 'Ouvrir mon tableau de bord' : 'Commencer mon parcours';
+  const primaryCta = user ? '/tableau-de-bord' : '/catalogue';
+  const primaryLabel = user ? 'Ouvrir mon tableau de bord' : 'Explorer les cours';
+  const secondaryCta = user ? '/catalogue' : '/inscription';
+  const secondaryLabel = user ? 'Explorer les modules' : 'Créer un compte';
 
   return (
     <div>
@@ -54,7 +56,7 @@ export default function HomePage() {
             </motion.p>
             <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24, duration: 0.55 }} className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Link to={primaryCta} className={buttonStyles({ size: 'lg' })}>{primaryLabel} <ArrowRight size={16} /></Link>
-              <Link to="/catalogue" className={buttonStyles({ variant: 'outline', size: 'lg' })}>Explorer les modules</Link>
+              <Link to={secondaryCta} className={buttonStyles({ variant: 'outline', size: 'lg' })}>{secondaryLabel}</Link>
             </motion.div>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.6 }} className="mt-12 flex flex-wrap items-center gap-x-7 gap-y-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[#71808a]">
               <span className="flex items-center gap-2"><CheckCircle2 size={13} className="text-neon" /> 10 modules</span>

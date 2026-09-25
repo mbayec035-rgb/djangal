@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { Braces, CheckCircle2, Database, ShieldCheck } from 'lucide-react';
 import Logo from '../ui/Logo.jsx';
+import ThemeToggle from '../ui/ThemeToggle.jsx';
 import Typewriter from '../effects/Typewriter.jsx';
 
 const terminalLines = [
@@ -64,8 +65,11 @@ export default function AuthLayout() {
         <div className="absolute inset-0 dot-grid opacity-[0.16]" />
         <div className="relative flex items-center justify-between border-b border-line px-5 py-5 lg:justify-end lg:px-10">
           <div className="lg:hidden"><Logo /></div>
-          <div className="hidden items-center gap-2 font-mono text-[9px] uppercase tracking-[0.12em] text-muted sm:flex">
-            <Braces size={13} className="text-electric" /> Environnement sécurisé
+          <div className="flex items-center gap-3">
+            <div className="hidden items-center gap-2 font-mono text-[9px] uppercase tracking-[0.12em] text-muted sm:flex">
+              <Braces size={13} className="text-electric" /> Environnement sécurisé
+            </div>
+            <ThemeToggle />
           </div>
         </div>
         <div className="relative flex flex-1 items-center justify-center px-5 py-10 sm:px-8">

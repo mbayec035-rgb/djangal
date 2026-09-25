@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronRight, Clock3, FileCode2, FlaskConical, PlayCircle, RotateCcw, Target, Trophy } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -17,7 +17,6 @@ import { useAuth } from '../contexts/AuthContext.jsx';
 
 export default function CoursePage() {
   const { slug } = useParams();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const toast = useToast();
   const { user } = useAuth();
@@ -61,10 +60,6 @@ export default function CoursePage() {
 
   const updateProgress = async (completed) => {
     if (!activeChapter) return;
-    if (!user) {
-      navigate('/connexion', { state: { from: { pathname: `/cours/${slug}` } } });
-      return;
-    }
     setSaving(true);
     try {
       const result = await api.patch(`/courses/${course.id}/chapters/${activeChapter.id}/progress`, { completed });
@@ -73,7 +68,7 @@ export default function CoursePage() {
         course: { ...current.course, progress: result.courseProgress, completedChapters: chapters.filter((chapter) => chapter.id === activeChapter.id ? Boolean(completed) : chapter.completed).length },
         chapters: current.chapters.map((chapter) => chapter.id === activeChapter.id ? { ...chapter, completed: Boolean(completed) } : chapter),
       }));
-      toast.success(completed ? 'Chapitre marqué comme terminé.' : 'Chapitre remis en progression.');
+      toast.success(completed ? (user ? 'Chapitre marqué comme terminé.' : 'Chapitre enregistré pour cette session.') : 'Chapitre remis en progression.');
     } catch (requestError) {
       toast.error(requestError.message);
     } finally {
@@ -93,7 +88,7 @@ export default function CoursePage() {
         <div className="absolute inset-0 cyber-grid opacity-50" />
         <div className="absolute right-0 top-0 h-full w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(0,255,157,.10),transparent_65%)]" />
         <div className="relative flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
-          <div className="flex items-start gap-5"><div className="grid h-16 w-16 shrink-0 place-items-center border border-neon/40 bg-neon/5 text-neon sm:h-20 sm:w-20"><CourseIcon name={course.icon} size={31} /></div><div><div className="flex flex-wrap items-center gap-2"><p className="eyebrow">{course.technology} / module {String(course.orderIndex).padStart(2, '0')}</p><StatusBadge tone="info">{course.level}</StatusBadge></div><h1 className="mt-3 font-display text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">{course.title}</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-muted">{course.description}</p></div></div>
+          <div className="flex items-start gap-5"><div className="grid h-14 w-14 shrink-0 place-items-center border border-neon/40 bg-neon/5 text-neon sm:h-20 sm:w-20"><CourseIcon name={course.icon} size={27} /></div><div><div className="flex flex-wrap items-center gap-2"><p className="eyebrow">{course.technology} / module {String(course.orderIndex).padStart(2, '0')}</p><StatusBadge tone="info">{course.level}</StatusBadge>{!user && <StatusBadge tone="neutral" icon="info">Accès libre</StatusBadge>}</div><h1 className="mt-3 font-display text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">{course.title}</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-muted">{course.description}</p></div></div>
           <div className="w-full max-w-xs"><div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-wider"><span className="text-muted">Progression du module</span><span className="text-neon">{course.progress}%</span></div><ProgressBar value={course.progress} showValue /><div className="mt-3 flex items-center justify-between text-[10px] text-muted"><span>{course.completedChapters} / {chapters.length} chapitres</span><span className="flex items-center gap-1"><Clock3 size={12} /> {course.durationMinutes} min</span></div></div>
         </div>
       </section>
@@ -109,7 +104,7 @@ export default function CoursePage() {
           <div className="mt-6"><CodeLab chapter={activeChapter} /></div>
 
           <section className="mt-6 grid gap-4 border border-line bg-[#0c1117] p-5 sm:grid-cols-[1fr_auto] sm:items-center sm:p-6">
-            <div className="flex items-start gap-3"><div className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center border ${activeChapter.completed ? 'border-neon/40 bg-neon/5 text-neon' : 'border-line bg-surface text-electric'}`}>{activeChapter.completed ? <Check size={17} /> : <Target size={17} />}</div><div><h3 className="font-display text-lg font-semibold text-white">{activeChapter.completed ? 'Chapitre validé' : 'Avez-vous terminé ce chapitre ?'}</h3><p className="mt-1 text-sm leading-6 text-muted">Marquez votre progression pour la retrouver dans votre tableau de bord.</p></div></div>
+            <div className="flex items-start gap-3"><div className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center border ${activeChapter.completed ? 'border-neon/40 bg-neon/5 text-neon' : 'border-line bg-surface text-electric'}`}>{activeChapter.completed ? <Check size={17} /> : <Target size={17} />}</div><div><h3 className="font-display text-lg font-semibold text-white">{activeChapter.completed ? 'Chapitre validé' : 'Avez-vous terminé ce chapitre ?'}</h3><p className="mt-1 text-sm leading-6 text-muted">{user ? 'Marquez votre progression pour la retrouver dans votre tableau de bord.' : 'Votre progression est conservée dans ce navigateur. Connectez-vous pour la retrouver dans votre tableau de bord.'}</p></div></div>
             <Button variant={activeChapter.completed ? 'outline' : 'primary'} onClick={() => updateProgress(!activeChapter.completed)} loading={saving}>{activeChapter.completed ? <><RotateCcw size={14} /> Revenir en cours</> : <><Check size={14} /> Marquer comme terminé</>}</Button>
           </section>
 

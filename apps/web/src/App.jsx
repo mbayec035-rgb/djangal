@@ -24,6 +24,7 @@ export default function App() {
           <Route index element={<HomePage />} />
           <Route path="catalogue" element={<CatalogPage />} />
           <Route path="cours/:slug" element={<CoursePage />} />
+          <Route path="quiz/:quizId" element={<QuizPage />} />
         </Route>
 
         <Route element={<AuthLayout />}>
@@ -33,7 +34,6 @@ export default function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route path="tableau-de-bord" element={<DashboardPage />} />
-          <Route path="quiz/:quizId" element={<QuizPage />} />
           <Route path="profil" element={<ProfilePage />} />
         </Route>
 

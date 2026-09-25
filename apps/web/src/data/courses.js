@@ -1,9 +1,4 @@
-import bcrypt from 'bcryptjs';
-import { db } from './db.js';
-
-const now = new Date().toISOString();
-
-const modules = [
+export const defaultModules = [
   {
     id: 'course-html',
     slug: 'html',
@@ -615,86 +610,4 @@ const modules = [
       { prompt: 'Comment réduire le risque d’un workflow CI ?', options: ['Permissions minimales et dépendances épinglées', 'Secrets dans les logs', 'Force push systématique', 'Désactivation des tests'], correct: 0, explanation: 'Le moindre privilège et la traçabilité sont essentiels.' },
     ],
   },
-];
-
-function questionRow(quizId, chapterId, question, index) {
-  const isBoolean = question.options.length === 2 && question.options.every((option) => ['Vrai', 'Faux'].includes(option));
-  return [
-    `${quizId}-q${index + 1}`,
-    quizId,
-    question.type || (isBoolean ? 'boolean' : 'mcq'),
-    question.prompt,
-    JSON.stringify(question.options),
-    question.correct,
-    question.explanation,
-    index,
-  ];
-}
-
-function seedUsers() {
-  const count = db.prepare('SELECT COUNT(*) AS count FROM users').get().count;
-  if (count > 0) return;
-
-  const insert = db.prepare(`
-    INSERT INTO users (id, name, email, password_hash, role, avatar, bio, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  insert.run('user-admin', 'Administrateur Djangue', 'admin@djangue.dev', bcrypt.hashSync('DjangueAdmin2026!', 12), 'admin', null, 'Compte administrateur de la plateforme.', now, now);
-  insert.run('user-student', 'Camille Diallo', 'student@djangue.dev', bcrypt.hashSync('DjangueStudent2026!', 12), 'student', null, 'Apprenante en développement web et outils de modélisation.', now, now);
-}
-
-function seedModules() {
-  const count = db.prepare('SELECT COUNT(*) AS count FROM courses').get().count;
-  if (count > 0) return;
-
-  const insertCourse = db.prepare(`
-    INSERT INTO courses (id, slug, technology, title, short_description, description, level, duration_minutes, icon, accent, order_index, published, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
-  `);
-  const insertChapter = db.prepare(`
-    INSERT INTO chapters (id, course_id, slug, title, summary, content, code, language, duration_minutes, order_index, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  const insertQuiz = db.prepare(`
-    INSERT INTO quizzes (id, chapter_id, course_id, title, description, kind, pass_score)
-    VALUES (?, ?, ?, ?, ?, ?, 70)
-  `);
-  const insertQuestion = db.prepare(`
-    INSERT INTO questions (id, quiz_id, type, prompt, options, correct_index, explanation, order_index)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  db.exec('BEGIN');
-  try {
-    modules.forEach((course, courseIndex) => {
-      insertCourse.run(course.id, course.slug, course.technology, course.title, course.shortDescription, course.description, course.level, course.duration, course.icon, course.accent, courseIndex + 1, now, now);
-
-      course.chapters.forEach((chapter, chapterIndex) => {
-        insertChapter.run(chapter.id, course.id, chapter.slug, chapter.title, chapter.summary, chapter.content, chapter.code, chapter.language, chapter.duration, chapterIndex + 1, now, now);
-        const quizId = `quiz-${chapter.slug}`;
-        insertQuiz.run(quizId, chapter.id, null, `Quiz · ${chapter.title}`, 'Validez les notions essentielles de cette leçon.', 'chapter');
-        chapter.questions.forEach((question, questionIndex) => {
-          insertQuestion.run(...questionRow(quizId, chapter.id, question, questionIndex));
-        });
-      });
-
-      const finalId = `final-${course.slug}`;
-      insertQuiz.run(finalId, null, course.id, `Évaluation finale · ${course.title}`, 'Une synthèse chronométrée pour valider le module.', 'module');
-      course.final.forEach((question, questionIndex) => {
-        insertQuestion.run(...questionRow(finalId, course.id, question, questionIndex));
-      });
-    });
-    db.exec('COMMIT');
-  } catch (error) {
-    db.exec('ROLLBACK');
-    throw error;
-  }
-}
-
-export function seedDatabase() {
-  seedUsers();
-  seedModules();
-}
-
-seedDatabase();
+];;

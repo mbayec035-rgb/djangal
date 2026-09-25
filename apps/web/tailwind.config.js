@@ -4,16 +4,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        void: '#0a0e14',
-        surface: '#10161f',
-        raised: '#141c25',
-        line: '#23303a',
-        muted: '#82909c',
-        text: '#e6e6e6',
-        neon: '#00ff9d',
-        electric: '#00d9ff',
-        danger: '#ff5c7a',
-        warning: '#ffc857',
+        void: 'rgb(var(--color-void) / <alpha-value>)',
+        surface: 'rgb(var(--color-surface) / <alpha-value>)',
+        raised: 'rgb(var(--color-raised) / <alpha-value>)',
+        line: 'rgb(var(--color-line) / <alpha-value>)',
+        muted: 'rgb(var(--color-muted) / <alpha-value>)',
+        text: 'rgb(var(--color-text) / <alpha-value>)',
+        white: 'rgb(var(--color-text) / <alpha-value>)',
+        neon: 'rgb(var(--color-neon) / <alpha-value>)',
+        electric: 'rgb(var(--color-electric) / <alpha-value>)',
+        danger: 'rgb(var(--color-danger) / <alpha-value>)',
+        warning: 'rgb(var(--color-warning) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

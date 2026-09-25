@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronDown, LogOut, Menu, Settings, ShieldCheck, UserRound, X } from 'lucide-react';
 import Logo from '../ui/Logo.jsx';
+import ThemeToggle from '../ui/ThemeToggle.jsx';
 import { buttonStyles } from '../ui/Button.jsx';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import { cn, initials } from '../../lib/utils.js';
@@ -69,6 +70,7 @@ export default function Navbar() {
         </nav>
 
         <div className="hidden items-center gap-3 lg:flex">
+          <ThemeToggle className="h-9 w-9" />
           {user ? (
             <div className="relative" ref={accountRef}>
               <button
@@ -115,15 +117,18 @@ export default function Navbar() {
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setMobileOpen((open) => !open)}
+        <div className="flex items-center gap-2 lg:hidden">
+          <ThemeToggle className="h-10 w-10" />
+          <button
+            type="button"
+            onClick={() => setMobileOpen((open) => !open)}
           className="grid h-10 w-10 place-items-center border border-line bg-surface text-white lg:hidden"
           aria-label={mobileOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
           aria-expanded={mobileOpen}
         >
           {mobileOpen ? <X size={19} /> : <Menu size={19} />}
         </button>
+      </div>
       </div>
 
       {mobileOpen && (
