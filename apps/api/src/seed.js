@@ -618,10 +618,11 @@ const modules = [
 ];
 
 function questionRow(quizId, chapterId, question, index) {
+  const isBoolean = question.options.length === 2 && question.options.every((option) => ['Vrai', 'Faux'].includes(option));
   return [
     `${quizId}-q${index + 1}`,
     quizId,
-    question.type || (question.options.length === 2 ? 'mcq' : 'mcq'),
+    question.type || (isBoolean ? 'boolean' : 'mcq'),
     question.prompt,
     JSON.stringify(question.options),
     question.correct,

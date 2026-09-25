@@ -43,6 +43,15 @@ djangue/
 `-- ARCHITECTURE.md
 ```
 
+## Composants clés
+
+- `AuthProvider` : état de session, inscription, connexion, déconnexion et rafraîchissement.
+- `AuthField` / `PasswordField` : champs accessibles avec erreurs ciblées.
+- `ProtectedRoute` / `RoleRoute` : contrôle d'accès côté client en complément du contrôle serveur.
+- `AuthLayout` : interface terminal dédiée à l'authentification.
+- `CourseCard`, `ChapterNav`, `CodeLab` : catalogue, navigation de cours et laboratoire Monaco local.
+- `ProgressBar`, `StatusBadge`, `ToastProvider` : composants de feedback et de progression.
+
 ## Parcours authentification
 
 1. L'utilisateur ouvre `/connexion` ou `/inscription`.

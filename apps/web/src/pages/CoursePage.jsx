@@ -13,12 +13,14 @@ import StatusBadge from '../components/ui/StatusBadge.jsx';
 import { PageLoader } from '../components/ui/LoadingState.jsx';
 import { api } from '../lib/api.js';
 import { useToast } from '../contexts/ToastContext.jsx';
+import { useAuth } from '../contexts/AuthContext.jsx';
 
 export default function CoursePage() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const toast = useToast();
+  const { user } = useAuth();
   const [data, setData] = useState(null);
   const [activeChapterId, setActiveChapterId] = useState(searchParams.get('chapitre'));
   const [loading, setLoading] = useState(true);
@@ -59,6 +61,10 @@ export default function CoursePage() {
 
   const updateProgress = async (completed) => {
     if (!activeChapter) return;
+    if (!user) {
+      navigate('/connexion', { state: { from: { pathname: `/cours/${slug}` } } });
+      return;
+    }
     setSaving(true);
     try {
       const result = await api.patch(`/courses/${course.id}/chapters/${activeChapter.id}/progress`, { completed });
